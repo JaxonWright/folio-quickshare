@@ -1,6 +1,6 @@
 {
   "folio": 1,
-  "requires": ["quickshare", "jq"],
+  "requires": ["jq", "curl"],
   "poll": { "command": ["./devices"], "every": 10 },
   "actions": [
     { "id": "send", "label": "Quick Share", "menu": "share", "to": "items", "files": true,

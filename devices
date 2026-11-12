@@ -4,7 +4,9 @@
 # --no-wake each poll would wake Quick Share on every phone in range.
 # A device goes by its name, which send --to takes, because its id is an
 # address that changes from one connection to the next.
-quickshare --json browse --timeout 2 --no-wake | jq -sc '
+. ./lib.sh
+qs=$(quickshare_bin) || exit 1
+"$qs" --json browse --timeout 2 --no-wake | jq -sc '
   [.[] | select(.t == "device" and (.name // "") != "")
        | {id: .name, name: .name, icon: "quickshare.svg"}]
   | {items: unique_by(.id)}'

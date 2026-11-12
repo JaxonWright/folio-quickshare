@@ -1,10 +1,15 @@
 #!/bin/sh
 # Sends the selected files to the chosen device and waits for its owner to
 # answer, which Folio allows because actions have no time limit.
+. ./lib.sh
 err=$(mktemp) || exit 1
 trap 'rm -f "$err"' EXIT
 
-code=$(quickshare --json send --to "$FOLIO_TARGET" -- "$@" 2>"$err" |
+qs=$(quickshare_bin 2>"$err") || {
+  jq -cn --arg why "$(tail -n 1 "$err")" '{error: ["Couldn'\''t get quickshare: %1", $why]}'
+  exit 1
+}
+code=$("$qs" --json send --to "$FOLIO_TARGET" -- "$@" 2>"$err" |
   jq -r 'select(.t == "result") | .code' | tail -n 1)
 
 name=$FOLIO_TARGET_NAME

@@ -7,8 +7,8 @@ The plugin does no networking itself. It calls the [quickshare](https://github.c
 ## Requirements
 
 - Folio 0.4.0 or newer.
-- [quickshare](https://github.com/JaxonWright/quickshare/releases) 0.2.0 or newer, on `PATH`. Omarchy puts `~/.local/bin` on `PATH`, so the quickshare README's install command is enough.
-- `jq`.
+- Linux on x86_64 or aarch64. On other architectures, build [quickshare](https://github.com/JaxonWright/quickshare) 0.2.0 or newer and put it on `PATH`.
+- `jq` and `curl`, which Omarchy already has.
 
 ## Install
 
@@ -16,7 +16,9 @@ The plugin does no networking itself. It calls the [quickshare](https://github.c
 git clone https://github.com/JaxonWright/folio-quickshare ~/.local/share/folio/plugins/quickshare
 ```
 
-Press F5 in an open Folio window, or start Folio, and the plugin is read. To update, `git pull` in that folder.
+Press F5 in an open Folio window, or start Folio. That is the whole install. On its first poll the plugin downloads the [quickshare](https://github.com/JaxonWright/quickshare/releases) release it pins, about 6 MB, into its own `bin/` folder, and checks it against a SHA-256 written in `lib.sh`. A slow download carries on over the next polls. Phones start showing up once it finishes.
+
+To update, run `git pull` in that folder. An update also moves the pinned quickshare version, so the two always match.
 
 ## How it behaves
 
