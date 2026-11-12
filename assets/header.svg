@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="216" height="80" viewBox="0 0 216 80">
+  <title>Quick Share + Folio</title>
+  <svg x="0" y="0" width="80" height="80" viewBox="0 0 512 512">
+    <circle cx="256" cy="256" r="256" fill="#4287f4"/>
+    <g fill="none" stroke="#fff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M419.8 243.4A164 164 0 0 0 97.0 212.0H256M216 174l40 38-40 38"/>
+    <path d="M93.6 274.8A164 164 0 0 0 414.0 296.0H256M296 258l-40 38 40 38"/>
+    </g>
+  </svg>
+  <path d="M108 28v24M96 40h24" stroke="#8b949e" stroke-width="4" stroke-linecap="round"/>
+  <svg x="136" y="0" width="80" height="80" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="front" x1="0" y1="0" x2="1" y2="1">
+        <stop stop-color="#7aa2f7"/>
+        <stop offset="1" stop-color="#7dcfff"/>
+      </linearGradient>
+    </defs>
+    <g transform="translate(256 256) scale(1.2) translate(-256 -260)">
+    <path d="M84 118Q84 98 104 98H196Q206 98 212 106L226 126H408Q428 126 428 146V392Q428 412 408 412H104Q84 412 84 392Z" fill="#0e0f17" transform="translate(0 8)"/>
+    <path d="M84 118Q84 98 104 98H196Q206 98 212 106L226 126H408Q428 126 428 146V392Q428 412 408 412H104Q84 412 84 392Z" fill="#bb9af7"/>
+    <rect x="124" y="160" width="264" height="190" rx="14" fill="#0e0f17" transform="translate(0 6)"/>
+    <rect x="124" y="160" width="264" height="190" rx="14" fill="#c0caf5"/>
+    <rect x="156" y="194" width="124" height="16" rx="8" fill="#565f89"/>
+    <rect x="156" y="226" width="176" height="16" rx="8" fill="#565f89" opacity=".55"/>
+    <rect x="84" y="250" width="344" height="172" rx="20" fill="#0e0f17" transform="translate(0 8)"/>
+    <rect x="84" y="250" width="344" height="172" rx="20" fill="url(#front)"/>
+    <rect x="112" y="374" width="96" height="14" rx="7" fill="#1a1b26" opacity=".35"/>
+    </g>
+  </svg>
+</svg>

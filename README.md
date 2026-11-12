@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/header.svg" width="216" height="80" alt="Quick Share + Folio">
+</p>
+
 # folio-quickshare
 
 A [Folio](https://github.com/omacom/folio) plugin that sends files to nearby Android devices with Quick Share, and receives files from them. To send, select files, right-click, and choose a device under **Share › Quick Share**. To receive, right-click a folder and choose **Receive with Quick Share**.
@@ -52,4 +56,4 @@ The tests run the plugin's commands against stand-ins for `quickshare`, `systemc
 
 GPL-3.0-only, to match quickshare. See `LICENSE`.
 
-Quick Share is a trademark of Google. The mark in `quickshare.svg` is a tracing of Google's icon, and this project is not affiliated with Google.
+The Folio logo in `assets/header.svg` is copied from [Folio](https://github.com/omacom/folio), Copyright (c) 2026 David Heinemeier Hansson, under the MIT license in `assets/FOLIO-LICENSE`. Quick Share is a trademark of Google. The Quick Share mark in `assets/header.svg` and `quickshare.svg` is a tracing of Google's icon, and this project is not affiliated with Google.
