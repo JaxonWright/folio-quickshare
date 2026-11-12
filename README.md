@@ -4,7 +4,7 @@
 
 # folio-quickshare
 
-A [Folio](https://github.com/omacom/folio) plugin that sends and receives files with nearby Android devices over Quick Share. The phone uses Android's built-in Quick Share, so it needs no extra app.
+A [Folio](https://github.com/omacom/folio) plugin that sends and receives files with nearby Android devices over their native Quick Share protocol.
 
 ```sh
 git clone https://github.com/JaxonWright/folio-quickshare ~/.local/share/folio/plugins/quickshare
