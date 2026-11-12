@@ -1,14 +1,14 @@
 # folio-quickshare
 
-A [Folio](https://github.com/omacom/folio) plugin that sends files to nearby Android devices with Quick Share. Select files, right-click, and choose a device under **Share › Quick Share**.
+A [Folio](https://github.com/omacom/folio) plugin that sends files to nearby Android devices with Quick Share, and receives files from them. To send, select files, right-click, and choose a device under **Share › Quick Share**. To receive, right-click a folder and choose **Receive with Quick Share**.
 
 The plugin does no networking itself. It calls the [quickshare](https://github.com/JaxonWright/quickshare) command, the same way Folio's Taildrop entry calls `tailscale`.
 
 ## Requirements
 
 - Folio 0.4.0 or newer.
-- Linux on x86_64 or aarch64. On other architectures, build [quickshare](https://github.com/JaxonWright/quickshare) 0.2.0 or newer and put it on `PATH`.
-- `jq` and `curl`, which Omarchy already has.
+- Linux on x86_64 or aarch64. On other architectures, build [quickshare](https://github.com/JaxonWright/quickshare) 0.3.0 or newer and put it on `PATH`.
+- `jq`, `curl`, `notify-send` and a systemd user session, which Omarchy already has.
 
 ## Install
 
@@ -22,7 +22,9 @@ To update, run `git pull` in that folder. An update also moves the pinned quicks
 
 ## How it behaves
 
-Every 10 seconds Folio runs `devices`, which runs `quickshare browse --no-wake` for 2 seconds and lists each device it hears. `--no-wake` matters here. Folio polls in the background whether or not a menu is open, and a plain `browse` sends the Bluetooth advertisement that wakes Quick Share on every phone in range. So a phone shows up under **Quick Share** only while it is already visible, which usually means its Quick Share screen is open or its visibility is set to Everyone. The submenu is hidden while no device is visible.
+### Sending
+
+Every 10 seconds Folio runs `poll`, which runs `quickshare browse --no-wake` for 2 seconds and lists each device it hears. `--no-wake` matters here. Folio polls in the background whether or not a menu is open, and a plain `browse` sends the Bluetooth advertisement that wakes Quick Share on every phone in range. So a phone shows up under **Quick Share** only while it is already visible, which usually means its Quick Share screen is open or its visibility is set to Everyone. The submenu is hidden while no device is visible.
 
 Choosing a device runs `send`, which runs `quickshare send` and waits for the phone's owner to tap Accept. The send wakes that phone. While it waits and copies, Folio shows "Sending to" and the device's name, then "Sent to" and the name, or why it did not go: the owner declined, cancelled, or quickshare's own error. Closing Folio ends a send that is still running.
 
@@ -30,13 +32,21 @@ The entry is hidden while a folder is selected, because Quick Share sends files.
 
 Sending needs no firewall rule, because this computer opens every connection.
 
+### Receiving
+
+**Receive with Quick Share** on a folder starts a systemd user service, `folio-quickshare-receive.service`, that runs `quickshare receive` into that folder. It keeps running after Folio closes and starts again at the next login. While it runs, the folder carries the Quick Share mark in Folio's sidebar, and phones nearby list this computer by its hostname. **Stop Receiving with Quick Share**, on any folder, stops the service and disables it.
+
+Nothing is saved without asking. Each incoming transfer shows a notification with the sender, the files, their size and a PIN, and Accept and Decline buttons. Check that the PIN matches the one on the phone before you accept. Closing the notification, or leaving it for a minute, declines. When files arrive, a notification names them and has a button that opens the folder in Folio.
+
+A phone connects to this computer to send, so the firewall has to allow TCP port 53318. Omarchy's ufw denies incoming connections, so allow it once with `sudo ufw allow 53318/tcp`. **Receive with Quick Share** runs `quickshare doctor` first and refuses with that fix when the port is blocked.
+
 ## Tests
 
 ```sh
 tests/run
 ```
 
-The tests run `devices` and `send` against a stand-in `quickshare` and check the JSON Folio would read.
+The tests run the plugin's commands against stand-ins for `quickshare`, `systemctl` and `notify-send`, and check what Folio, systemd and the notification would get.
 
 ## License
 

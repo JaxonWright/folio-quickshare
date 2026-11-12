@@ -6,5 +6,11 @@
   "%1 cancelled the transfer.": "%1 cancelled the transfer.",
   "Couldn't send to %1: %2": "Couldn't send to %1: %2",
   "Couldn't send to %1.": "Couldn't send to %1.",
-  "Couldn't get quickshare: %1": "Couldn't get quickshare: %1"
+  "Couldn't get quickshare: %1": "Couldn't get quickshare: %1",
+  "Receive with Quick Share": "Receive with Quick Share",
+  "Stop Receiving with Quick Share": "Stop Receiving with Quick Share",
+  "Turning on Quick Share receiving…": "Turning on Quick Share receiving…",
+  "Can't receive with Quick Share: %1": "Can't receive with Quick Share: %1",
+  "Receiving with Quick Share into %1.": "Receiving with Quick Share into %1.",
+  "Stopped receiving with Quick Share.": "Stopped receiving with Quick Share."
 }

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Lists the devices visible to Quick Share right now, offers the receive or
+# stop action to match whether receiving is on, and puts the Quick Share mark
+# on the folder being received into. Folio runs this every few seconds
+# whether or not a menu is open, so it only listens: without --no-wake each
+# poll would wake Quick Share on every phone in range. A device goes by its
+# name, which send --to takes, because its id is an address that changes from
+# one connection to the next.
+. ./lib.sh
+qs=$(quickshare_bin) || exit 1
+dir=$(receiving_dir) || dir=
+"$qs" --json browse --timeout 2 --no-wake | jq -sc --arg dir "$dir" '
+  {items: ([.[] | select(.t == "device" and (.name // "") != "")
+                | {id: .name, name: .name, icon: "quickshare.svg"}] | unique_by(.id)),
+   actions: (if $dir == "" then ["send", "receive"] else ["send", "stop"] end),
+   places: (if $dir == "" then [] else [{path: $dir, icon: "quickshare.svg"}] end)}'

@@ -1,14 +1,25 @@
-# Sourced by devices and send, which Folio runs in the plugin's folder.
+# Sourced by the plugin's commands, which run in the plugin's folder.
 # quickshare_bin prints the quickshare to run: the release this plugin pins,
 # downloaded into bin/ on first use, so updating the plugin moves both.
 
-QUICKSHARE_VERSION=0.2.0
+QUICKSHARE_VERSION=0.3.0
+
+# Receiving runs as this systemd user service, so it keeps going after Folio
+# closes and comes back at the next login. The folder it receives into is in
+# $state/dir.
+unit=folio-quickshare-receive.service
+state=${XDG_STATE_HOME:-$HOME/.local/state}/folio-quickshare
+
+# Prints the folder being received into, or fails when receiving is off.
+receiving_dir() {
+  systemctl --user is-active --quiet "$unit" && cat "$state/dir" 2>/dev/null
+}
 
 quickshare_bin() {
   arch=$(uname -m)
   case $arch in
-    x86_64) sum=316541022af101b755a98a23ecb4d3d5b6e0dabe97e80f61f0275d317782b184 ;;
-    aarch64) sum=b95515244e9ccbc40c7158acae3026fe06e4b5a3a230e19e5764884c67b3eada ;;
+    x86_64) sum=f180aa7ea34a9518727be1c3f849c627ecabb30edd7be31c2de9ab2697a26d5a ;;
+    aarch64) sum=d97b79b96f0699cc8f78dfee5890fa6f3a2a65bccae8cfdcd65e7486d5158a05 ;;
     *)
       command -v quickshare && return
       echo "no quickshare release for $arch; build it and put it on PATH" >&2

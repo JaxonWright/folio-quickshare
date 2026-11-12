@@ -1,0 +1,22 @@
+#!/bin/sh
+# What the systemd user service runs: quickshare receive into the chosen
+# folder, asking with ./ask before each transfer, and a notification for each
+# one that arrives or fails.
+cd "$(dirname "$0")" || exit 1
+. ./lib.sh
+qs=$(quickshare_bin) || exit 1
+dir=$(cat "$state/dir") || exit 1
+
+notify() {
+  omarchy-notification-send --app-name "Quick Share" -g 󰄜 "$@"
+}
+
+"$qs" --json receive --dir "$dir" --ask "$PWD/ask" | while IFS= read -r event; do
+  case $(printf '%s' "$event" | jq -r .t) in
+    received)
+      what=$(printf '%s' "$event" | jq -r 'if (.files | length) == 1 then .files[0] else "\(.files | length) files" end')
+      notify "Received $what" "In $dir" --action "Show in Folio" folio "$dir" ;;
+    result)
+      [ "$(printf '%s' "$event" | jq -r .code)" = failed ] && notify -u critical "Quick Share transfer failed" ;;
+  esac
+done

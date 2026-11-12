@@ -1,9 +1,13 @@
 {
   "folio": 1,
-  "requires": ["jq", "curl"],
-  "poll": { "command": ["./devices"], "every": 10 },
+  "requires": ["jq", "curl", "systemctl", "notify-send"],
+  "poll": { "command": ["./poll"], "every": 10 },
   "actions": [
     { "id": "send", "label": "Quick Share", "menu": "share", "to": "items", "files": true,
-      "command": ["./send"], "busy": "Sending to %1…" }
+      "command": ["./send"], "busy": "Sending to %1…" },
+    { "id": "receive", "label": "Receive with Quick Share", "types": ["inode/directory"], "single": true,
+      "command": ["./receive", "on"], "busy": "Turning on Quick Share receiving…" },
+    { "id": "stop", "label": "Stop Receiving with Quick Share", "types": ["inode/directory"], "single": true,
+      "command": ["./receive", "off"] }
   ]
 }

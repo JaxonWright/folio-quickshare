@@ -1,17 +1,18 @@
 #!/bin/sh
-# Runs devices and send against a stand-in quickshare and checks what Folio would read.
+# Runs the plugin's commands against stand-ins for quickshare, systemctl and
+# notify-send, and checks what Folio, systemd and the notification would get.
 set -u
 fake=$(mktemp -d)
 trap 'rm -rf "$fake"' EXIT
 # A copy of the plugin whose pinned quickshare is already the stand-in, so nothing is downloaded.
 here=$fake/plugin
-mkdir -p "$here"
+mkdir -p "$here" "$fake/bin" "$fake/state" "$fake/config"
 cp -R "$(cd "$(dirname "$0")/.." && pwd)"/. "$here"
 rm -rf "$here/.git" "$here/bin"
 . "$here/lib.sh"
 mkdir -p "$here/bin"
 
-cat >"$fake/quickshare" <<'EOF'
+cat >"$here/bin/quickshare-$QUICKSHARE_VERSION" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >>"$FAKE_DIR/calls"
 case $FAKE_MODE in
@@ -25,34 +26,98 @@ case $FAKE_MODE in
     echo "{\"t\":\"result\",\"id\":\"a\",\"code\":\"$FAKE_MODE\"}"
     [ "$FAKE_MODE" = delivered ] || exit 1 ;;
   failed) echo 'quickshare: no device named "Pixel" appeared within 120 seconds' >&2; exit 2 ;;
+  doctor-ok) echo '{"t":"check","name":"firewall","status":"ok","detail":"ufw allows incoming TCP 53318","fix":""}' ;;
+  doctor-fail)
+    echo '{"t":"check","name":"bluetooth","status":"warn","detail":"hci0 is off","fix":""}'
+    echo '{"t":"check","name":"firewall","status":"fail","detail":"ufw drops incoming TCP 53318","fix":"sudo ufw allow 53318/tcp"}'
+    exit 1 ;;
 esac
 EOF
-chmod +x "$fake/quickshare"
-cp "$fake/quickshare" "$here/bin/quickshare-$QUICKSHARE_VERSION"
+chmod +x "$here/bin/quickshare-$QUICKSHARE_VERSION"
+
+# systemctl stand-in: records each call; the unit is active while $fake/active exists.
+cat >"$fake/bin/systemctl" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >>"$FAKE_DIR/systemctl"
+case "$*" in
+  *is-active*) [ -e "$FAKE_DIR/active" ] ;;
+esac
+EOF
+# notify-send stand-in: records the arguments and answers with $FAKE_CHOICE.
+cat >"$fake/bin/notify-send" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" >"$FAKE_DIR/notification"
+printf '%s\n' "$FAKE_CHOICE"
+EOF
+chmod +x "$fake/bin/systemctl" "$fake/bin/notify-send"
 
 failures=0
 check() {
   if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1"; echo "     want $3"; echo "     got  $2"; failures=$((failures + 1)); fi
 }
+# run <quickshare mode> <command> [args...]
 run() {
+  mode=$1
+  shift
   : >"$fake/calls"
-  (cd "$here" && FAKE_MODE=$1 FAKE_DIR=$fake FOLIO_TARGET=Pixel FOLIO_TARGET_NAME=Pixel "./$2" "-odd name.txt" "b.jpg")
+  : >"$fake/systemctl"
+  (cd "$here" && FAKE_MODE=$mode FAKE_DIR=$fake FAKE_CHOICE=${FAKE_CHOICE:-} PATH="$fake/bin:$PATH" \
+    XDG_STATE_HOME=$fake/state XDG_CONFIG_HOME=$fake/config \
+    FOLIO_TARGET=Pixel FOLIO_TARGET_NAME=Pixel "$@")
   echo "exit=$?"
 }
 
-check "devices lists each name once, sorted" "$(run devices devices)" \
-  '{"items":[{"id":"Galaxy Tab","name":"Galaxy Tab","icon":"quickshare.svg"},{"id":"Pixel","name":"Pixel","icon":"quickshare.svg"}]}
+check "poll lists each name once, sorted, and offers receive while it's off" "$(run devices ./poll)" \
+  '{"items":[{"id":"Galaxy Tab","name":"Galaxy Tab","icon":"quickshare.svg"},{"id":"Pixel","name":"Pixel","icon":"quickshare.svg"}],"actions":["send","receive"],"places":[]}
 exit=0'
-check "devices browses without waking phones" "$(cat "$fake/calls")" "--json browse --timeout 2 --no-wake"
-check "send delivered" "$(run delivered send)" '{"notice":["Sent to %1.","Pixel"]}
+check "poll browses without waking phones" "$(cat "$fake/calls")" "--json browse --timeout 2 --no-wake"
+
+check "send delivered" "$(run delivered ./send "-odd name.txt" "b.jpg")" '{"notice":["Sent to %1.","Pixel"]}
 exit=0'
 check "send passes the target and every file intact" "$(cat "$fake/calls")" "--json send --to Pixel -- -odd name.txt b.jpg"
-check "send declined" "$(run declined send)" '{"error":["%1 declined.","Pixel"]}
+check "send declined" "$(run declined ./send a)" '{"error":["%1 declined.","Pixel"]}
 exit=1'
-check "send cancelled" "$(run cancelled send)" '{"error":["%1 cancelled the transfer.","Pixel"]}
+check "send cancelled" "$(run cancelled ./send a)" '{"error":["%1 cancelled the transfer.","Pixel"]}
 exit=1'
-check "send failed gives quickshare's reason" "$(run failed send)" '{"error":["Couldn'\''t send to %1: %2","Pixel","no device named \"Pixel\" appeared within 120 seconds"]}
+check "send failed gives quickshare's reason" "$(run failed ./send a)" '{"error":["Couldn'\''t send to %1: %2","Pixel","no device named \"Pixel\" appeared within 120 seconds"]}
 exit=1'
+
+check "receive on refuses with doctor's failing check and its fix" "$(run doctor-fail ./receive on "$fake/My 100% Stuff")" \
+  '{"error":["Can'\''t receive with Quick Share: %1","ufw drops incoming TCP 53318; sudo ufw allow 53318/tcp"]}
+exit=1'
+check "receive on that failed touches no service" "$(cat "$fake/systemctl")" ""
+
+check "receive on starts the service" "$(run doctor-ok ./receive on "$fake/My 100% Stuff")" '{"notice":["Receiving with Quick Share into %1.","My 100% Stuff"]}
+exit=0'
+check "receive on enables the unit across logins and restarts it" "$(cat "$fake/systemctl")" "--user daemon-reload
+--user enable --quiet folio-quickshare-receive.service
+--user restart folio-quickshare-receive.service"
+check "receive on remembers the folder" "$(cat "$fake/state/folio-quickshare/dir")" "$fake/My 100% Stuff"
+check "the unit runs the receiver, with % escaped for systemd" \
+  "$(grep '^ExecStart=' "$fake/config/systemd/user/folio-quickshare-receive.service")" "ExecStart=\"$(printf '%s' "$here" | sed 's/%/%%/g')/receiver\""
+
+touch "$fake/active"
+check "poll offers stop and marks the folder while receiving" "$(run devices ./poll)" \
+  "{\"items\":[{\"id\":\"Galaxy Tab\",\"name\":\"Galaxy Tab\",\"icon\":\"quickshare.svg\"},{\"id\":\"Pixel\",\"name\":\"Pixel\",\"icon\":\"quickshare.svg\"}],\"actions\":[\"send\",\"stop\"],\"places\":[{\"path\":\"$fake/My 100% Stuff\",\"icon\":\"quickshare.svg\"}]}
+exit=0"
+check "receive off stops the service" "$(run none ./receive off)" '{"notice": "Stopped receiving with Quick Share."}
+exit=0'
+check "receive off disables the unit" "$(cat "$fake/systemctl")" "--user disable --now --quiet folio-quickshare-receive.service"
+
+ask() {
+  (cd "$here" && FAKE_DIR=$fake FAKE_CHOICE=$1 PATH="$fake/bin:$PATH" QUICKSHARE_FROM="Jaxon's Pixel" QUICKSHARE_PIN=4821 \
+    QUICKSHARE_FILES="$2" QUICKSHARE_BYTES=3300000 ./ask)
+  echo "exit=$?"
+}
+check "ask accepts when Accept is chosen" "$(ask accept "photo.jpg")" "exit=0"
+check "ask shows the sender, the file, the size and the PIN" "$(tail -n 2 "$fake/notification")" "Jaxon's Pixel wants to send photo.jpg
+3.2MB · PIN 4821"
+check "ask declines when Decline is chosen" "$(ask decline "photo.jpg")" "exit=1"
+check "ask declines when the notification closes unanswered" "$(ask "" "photo.jpg")" "exit=1"
+ask accept "a.jpg
+-b.mov
+c.pdf" >/dev/null
+check "ask names the first file and counts the rest" "$(tail -n 2 "$fake/notification" | head -n 1)" "Jaxon's Pixel wants to send a.jpg and 2 more"
 
 for f in "$here/i18n/en.json" "$here/manifest.json"; do
   jq -e . "$f" >/dev/null && echo "ok   $(basename "$f") is JSON" || failures=$((failures + 1))

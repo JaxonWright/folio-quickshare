@@ -1,0 +1,16 @@
+#!/bin/sh
+# Asks whether to accept an incoming transfer. quickshare receive --ask runs
+# this with the request in QUICKSHARE_* and accepts when it exits 0; closing
+# the notification, or leaving it for a minute, declines.
+count=$(printf '%s\n' "$QUICKSHARE_FILES" | grep -c .)
+first=$(printf '%s\n' "$QUICKSHARE_FILES" | head -n 1)
+case $count in
+  1) what=$first ;;
+  *) what="$first and $((count - 1)) more" ;;
+esac
+size=$(numfmt --to=iec --suffix=B "$QUICKSHARE_BYTES")
+
+choice=$(notify-send --app-name="Quick Share" --hint=string:omarchy-glyph:󰄜 --expire-time=60000 \
+  --action=accept=Accept --action=decline=Decline \
+  -- "$QUICKSHARE_FROM wants to send $what" "$size · PIN $QUICKSHARE_PIN")
+[ "$choice" = accept ]
