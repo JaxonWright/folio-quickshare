@@ -1,6 +1,7 @@
 #!/bin/sh
-# Runs the plugin's commands against stand-ins for quickshare, systemctl and
-# notify-send, and checks what Folio, systemd and the notification would get.
+# Runs the plugin's commands against stand-ins for quickshare, systemctl,
+# notify-send, pkexec and ufw, and checks what Folio, systemd, the
+# notification and the firewall would get.
 set -u
 fake=$(mktemp -d)
 trap 'rm -rf "$fake"' EXIT
@@ -27,10 +28,14 @@ case $FAKE_MODE in
     [ "$FAKE_MODE" = delivered ] || exit 1 ;;
   failed) echo 'quickshare: no device named "Pixel" appeared within 120 seconds' >&2; exit 2 ;;
   doctor-ok) echo '{"t":"check","name":"firewall","status":"ok","detail":"ufw allows incoming TCP 53318","fix":""}' ;;
-  doctor-fail)
+  doctor-blocked)
     echo '{"t":"check","name":"bluetooth","status":"warn","detail":"hci0 is off","fix":""}'
-    echo '{"t":"check","name":"firewall","status":"fail","detail":"ufw drops incoming TCP 53318","fix":"sudo ufw allow 53318/tcp"}'
-    exit 1 ;;
+    if [ -e "$FAKE_DIR/opened" ]; then
+      echo '{"t":"check","name":"firewall","status":"ok","detail":"ufw allows incoming TCP 53318","fix":""}'
+    else
+      echo '{"t":"check","name":"firewall","status":"fail","detail":"ufw drops incoming TCP 53318","fix":"sudo ufw allow 53318/tcp comment quickshare"}'
+      exit 1
+    fi ;;
 esac
 EOF
 chmod +x "$here/bin/quickshare-$QUICKSHARE_VERSION"
@@ -49,7 +54,16 @@ cat >"$fake/bin/notify-send" <<'EOF'
 printf '%s\n' "$@" >"$FAKE_DIR/notification"
 printf '%s\n' "$FAKE_CHOICE"
 EOF
-chmod +x "$fake/bin/systemctl" "$fake/bin/notify-send"
+# pkexec stand-in: records the command; with FAKE_PKEXEC=allow it opens the
+# port for the doctor stand-in, otherwise it is cancelled as the prompt can be.
+cat >"$fake/bin/pkexec" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >>"$FAKE_DIR/pkexec"
+[ "$FAKE_PKEXEC" = allow ] || exit 126
+touch "$FAKE_DIR/opened"
+EOF
+printf '#!/bin/sh\nexit 1\n' >"$fake/bin/ufw"
+chmod +x "$fake/bin/systemctl" "$fake/bin/notify-send" "$fake/bin/pkexec" "$fake/bin/ufw"
 
 failures=0
 check() {
@@ -61,7 +75,9 @@ run() {
   shift
   : >"$fake/calls"
   : >"$fake/systemctl"
-  (cd "$here" && FAKE_MODE=$mode FAKE_DIR=$fake FAKE_CHOICE=${FAKE_CHOICE:-} PATH="$fake/bin:$PATH" \
+  : >"$fake/pkexec"
+  rm -f "$fake/opened"
+  (cd "$here" && FAKE_MODE=$mode FAKE_DIR=$fake FAKE_CHOICE=${FAKE_CHOICE:-} FAKE_PKEXEC=${FAKE_PKEXEC:-} PATH="$fake/bin:$PATH" \
     XDG_STATE_HOME=$fake/state XDG_CONFIG_HOME=$fake/config \
     FOLIO_TARGET=Pixel FOLIO_TARGET_NAME=Pixel "$@")
   echo "exit=$?"
@@ -82,10 +98,20 @@ exit=1'
 check "send failed gives quickshare's reason" "$(run failed ./send a)" '{"error":["Couldn'\''t send to %1: %2","Pixel","no device named \"Pixel\" appeared within 120 seconds"]}
 exit=1'
 
-check "receive on refuses with doctor's failing check and its fix" "$(run doctor-fail ./receive on "$fake/My 100% Stuff")" \
-  '{"error":["Can'\''t receive with Quick Share: %1","ufw drops incoming TCP 53318; sudo ufw allow 53318/tcp"]}
+check "receive on with ufw blocking and the password prompt cancelled refuses with doctor's fix" \
+  "$(run doctor-blocked ./receive on "$fake/My 100% Stuff")" \
+  '{"error":["Can'\''t receive with Quick Share: %1","ufw drops incoming TCP 53318; sudo ufw allow 53318/tcp comment quickshare"]}
 exit=1'
+check "receive on asks to open the port with doctor's rule" "$(cat "$fake/pkexec")" "$fake/bin/ufw allow 53318/tcp comment quickshare"
 check "receive on that failed touches no service" "$(cat "$fake/systemctl")" ""
+
+check "receive on with ufw blocking and the password given opens the port and starts" \
+  "$(FAKE_PKEXEC=allow run doctor-blocked ./receive on "$fake/My 100% Stuff")" '{"notice":["Receiving with Quick Share into %1.","My 100% Stuff"]}
+exit=0'
+check "receive on asks for the password once" "$(cat "$fake/pkexec")" "$fake/bin/ufw allow 53318/tcp comment quickshare"
+
+run doctor-ok ./receive on "$fake/My 100% Stuff" >/dev/null
+check "receive on with the port already open asks for nothing" "$(cat "$fake/pkexec")" ""
 
 check "receive on starts the service" "$(run doctor-ok ./receive on "$fake/My 100% Stuff")" '{"notice":["Receiving with Quick Share into %1.","My 100% Stuff"]}
 exit=0'

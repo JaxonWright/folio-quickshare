@@ -2,6 +2,8 @@
 # receive on <folder>: receive with Quick Share into the folder until turned
 # off, across logins. receive off: stop.
 . ./lib.sh
+# quickshare receive's default port, which phones connect to.
+port=53318
 
 case $1 in
   on)
@@ -10,9 +12,16 @@ case $1 in
       jq -cn --arg why "$qs" '{error: ["Couldn'\''t get quickshare: %1", $why]}'
       exit 1
     }
+    failing() { "$qs" --json doctor --dir "$dir" | jq -c 'select(.status == "fail")'; }
+    fails=$(failing)
     # A firewall that drops the phone's connection fails without a word on
-    # this side, so say so now, with doctor's fix.
-    problem=$("$qs" --json doctor --dir "$dir" | jq -r 'select(.status == "fail") | "\(.detail)\(if .fix != "" then "; \(.fix)" else "" end)"' | head -n 1)
+    # this side. ufw is opened with the rule doctor suggests, after the
+    # desktop's password prompt; when that is cancelled, or the firewall is
+    # something else, doctor's fix is shown instead.
+    if printf '%s' "$fails" | jq -e 'select(.name == "firewall")' >/dev/null && ufw=$(command -v ufw); then
+      pkexec "$ufw" allow "$port/tcp" comment quickshare >/dev/null 2>&1 && fails=$(failing)
+    fi
+    problem=$(printf '%s\n' "$fails" | jq -r '"\(.detail)\(if .fix != "" then "; \(.fix)" else "" end)"' | head -n 1)
     if [ -n "$problem" ]; then
       jq -cn --arg why "$problem" '{error: ["Can'\''t receive with Quick Share: %1", $why]}'
       exit 1

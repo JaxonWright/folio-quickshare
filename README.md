@@ -19,7 +19,7 @@ Select files, right-click, and pick a nearby device under **Share › Quick Shar
 ![Folio's file menu on a photo, open at Share › Quick Share › Pixel 11 Pro Fold](assets/send.png)
 
 > [!NOTE]
-> Your phone must be temporarily made visible to everything around it or have the Quick Share Receive page open. As of now, there is no way to authenticate with your Google account to count your computer as one of your official Quick Share devices
+> Your phone must have its Quick Share visibility temporarily set to **Everyone**, or have the Quick Share receive screen open. As of now, there is no way to sign in with your Google account so that your computer counts as one of your own Quick Share devices.
 
 ### Receiving
 
@@ -32,7 +32,7 @@ Nothing is saved without asking. Each transfer shows a notification with the sen
 <img src="assets/accept.png" width="382" alt="A notification reading Pixel 11 Pro Fold wants to send PXL_20261107_190425590.jpg, 3.5MB, PIN 4821, with Copy code, Accept and Decline buttons">
 
 > [!NOTE]
-> The first time you set a folder up to receive with Quick Share, you will be prompted for your sudo password. This is to open the required port _(53318)_ for receiving on your computer's firewall.
+> If your firewall blocks the port phones connect to _(53318)_, the first time you set a folder up to receive with Quick Share you will be prompted for your password, so the plugin can open that port. If the port is already open, there is no prompt.
 
 ## Requirements
 
@@ -58,12 +58,13 @@ cd ~/.local/share/folio/plugins/quickshare && git pull
 
 ## Remove
 
-Stop receiving first, so no service is left running a plugin that is gone, then delete the plugin and what it keeps.
+Stop receiving first, so no service is left running a plugin that is gone, then delete the plugin and what it keeps. The last line closes the port that receiving opened in the firewall.
 
 ```sh
 systemctl --user disable --now folio-quickshare-receive.service
 rm -f ~/.config/systemd/user/folio-quickshare-receive.service
 rm -rf ~/.local/share/folio/plugins/quickshare ~/.local/state/folio-quickshare
+sudo ufw delete allow 53318/tcp
 ```
 
 > [!NOTE]
@@ -87,7 +88,7 @@ Sending needs no firewall rule, because this computer opens every connection.
 
 Check that the PIN in the notification matches the one on the phone before you accept. Closing the notification, or leaving it for a minute, declines. When files arrive, a notification names them and has a button that opens the folder in Folio.
 
-A phone connects to this computer to send, so the firewall has to allow TCP port 53318. Omarchy's ufw denies incoming connections, so allow it once with `sudo ufw allow 53318/tcp`. **Receive with Quick Share** runs `quickshare doctor` first and refuses with that fix when the port is blocked.
+A phone connects to this computer to send, so the firewall has to allow TCP port 53318, and Omarchy's ufw denies incoming connections. **Receive with Quick Share** runs `quickshare doctor` first. When ufw blocks the port, it asks for your password in the desktop's prompt and adds the rule `ufw allow 53318/tcp comment quickshare`, once. If you cancel the prompt, or another firewall blocks the port, it refuses and shows the fix to run yourself.
 
 ## Tests
 
@@ -95,7 +96,7 @@ A phone connects to this computer to send, so the firewall has to allow TCP port
 tests/run
 ```
 
-The tests run the plugin's commands against stand-ins for `quickshare`, `systemctl` and `notify-send`, and check what Folio, systemd and the notification would get.
+The tests run the plugin's commands against stand-ins for `quickshare`, `systemctl`, `notify-send`, `pkexec` and `ufw`, and check what Folio, systemd, the notification and the firewall would get. They never touch the real firewall or show a password prompt.
 
 ## License
 
