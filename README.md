@@ -8,6 +8,24 @@ A [Folio](https://github.com/omacom/folio) plugin that sends files to nearby And
 
 The plugin does no networking itself. It calls the [quickshare](https://github.com/JaxonWright/quickshare) command, the same way Folio's Taildrop entry calls `tailscale`.
 
+## Features
+
+### Sending
+
+Select files, right-click, and pick a nearby device under **Share › Quick Share**. Folio says it is sending in its status bar until the phone's owner taps Accept, then says the files were sent.
+
+![Folio's file menu on a photo, open at Share › Quick Share › Pixel 11 Pro Fold](assets/send.png)
+
+### Receiving
+
+Right-click a folder and choose **Receive with Quick Share**. The computer then shows up in the phone's share sheet under its hostname, and the files you accept land in that folder.
+
+![Folio's menu on the Downloads folder, with Receive with Quick Share highlighted](assets/receive.png)
+
+Nothing is saved without asking. Each transfer shows a notification with the sender, the files, their size and the PIN to match against the phone.
+
+<img src="assets/accept.png" width="382" alt="A notification reading Pixel 11 Pro Fold wants to send PXL_20261107_190425590.jpg, 3.5MB, PIN 4821, with Copy code, Accept and Decline buttons">
+
 ## Requirements
 
 - Folio 0.4.0 or newer.
