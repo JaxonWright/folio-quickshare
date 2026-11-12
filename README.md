@@ -4,7 +4,7 @@
 
 # folio-quickshare
 
-A [Folio](https://github.com/omacom/folio) plugin that sends and receives files with nearby Android devices using native Quick Share.
+A [Folio](https://github.com/omacom/folio) plugin that sends and receives files with nearby Android devices over Quick Share. The phone uses Android's built-in Quick Share, so it needs no extra app.
 
 ```sh
 git clone https://github.com/JaxonWright/folio-quickshare ~/.local/share/folio/plugins/quickshare
@@ -47,17 +47,21 @@ Press F5 in an open Folio window, or start Folio. That is the whole install. On 
 To update, run `git pull` in that folder. An update also moves the pinned quickshare version, so the two always match.
 
 ```sh
-cd ~/.local/share/folio/plugins/quickshare && git pull 
+cd ~/.local/share/folio/plugins/quickshare && git pull
 ```
 
 ## Remove
 
+Stop receiving first, so no service is left running a plugin that is gone, then delete the plugin and what it keeps.
+
 ```sh
-rm -r ~/.local/share/folio/plugins/quickshare
+systemctl --user disable --now folio-quickshare-receive.service
+rm -f ~/.config/systemd/user/folio-quickshare-receive.service
+rm -rf ~/.local/share/folio/plugins/quickshare ~/.local/state/folio-quickshare
 ```
 
 > [!NOTE]
-> As soon Folio makes it easier to manage 3rd-party plugins, these processes will be smoothed out to follow that
+> Once Folio has its own way to manage third-party plugins, these steps will move to it.
 
 ## Behavior
 
@@ -75,7 +79,7 @@ Sending needs no firewall rule, because this computer opens every connection.
 
 **Receive with Quick Share** on a folder starts a systemd user service, `folio-quickshare-receive.service`, that runs `quickshare receive` into that folder. It keeps running after Folio closes and starts again at the next login. While it runs, the folder carries the Quick Share mark in Folio's sidebar, and phones nearby list this computer by its hostname. **Stop Receiving with Quick Share**, on any folder, stops the service and disables it.
 
-Nothing is saved without asking. Each incoming transfer shows a notification with the sender, the files, their size and a PIN, and Accept and Decline buttons. Check that the PIN matches the one on the phone before you accept. Closing the notification, or leaving it for a minute, declines. When files arrive, a notification names them and has a button that opens the folder in Folio.
+Check that the PIN in the notification matches the one on the phone before you accept. Closing the notification, or leaving it for a minute, declines. When files arrive, a notification names them and has a button that opens the folder in Folio.
 
 A phone connects to this computer to send, so the firewall has to allow TCP port 53318. Omarchy's ufw denies incoming connections, so allow it once with `sudo ufw allow 53318/tcp`. **Receive with Quick Share** runs `quickshare doctor` first and refuses with that fix when the port is blocked.
 
