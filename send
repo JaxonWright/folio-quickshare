@@ -1,0 +1,26 @@
+#!/bin/sh
+# Sends the selected files to the chosen device and waits for its owner to
+# answer, which Folio allows because actions have no time limit.
+err=$(mktemp) || exit 1
+trap 'rm -f "$err"' EXIT
+
+code=$(quickshare --json send --to "$FOLIO_TARGET" -- "$@" 2>"$err" |
+  jq -r 'select(.t == "result") | .code' | tail -n 1)
+
+name=$FOLIO_TARGET_NAME
+case $code in
+  delivered)
+    jq -cn --arg name "$name" '{notice: ["Sent to %1.", $name]}' ;;
+  declined)
+    jq -cn --arg name "$name" '{error: ["%1 declined.", $name]}'; exit 1 ;;
+  cancelled)
+    jq -cn --arg name "$name" '{error: ["%1 cancelled the transfer.", $name]}'; exit 1 ;;
+  *)
+    why=$(tail -n 1 "$err" | sed 's/^quickshare: //')
+    if [ -n "$why" ]; then
+      jq -cn --arg name "$name" --arg why "$why" '{error: ["Couldn'\''t send to %1: %2", $name, $why]}'
+    else
+      jq -cn --arg name "$name" '{error: ["Couldn'\''t send to %1.", $name]}'
+    fi
+    exit 1 ;;
+esac

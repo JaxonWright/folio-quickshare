@@ -1,0 +1,56 @@
+#!/bin/sh
+# Runs devices and send against a stand-in quickshare and checks what Folio would read.
+set -u
+here=$(cd "$(dirname "$0")/.." && pwd)
+fake=$(mktemp -d)
+trap 'rm -rf "$fake"' EXIT
+
+cat >"$fake/quickshare" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >>"$FAKE_DIR/calls"
+case $FAKE_MODE in
+  devices)
+    echo '{"t":"device","id":"10.0.1.5:4000","name":"Pixel","kind":"phone","addr":"10.0.1.5:4000"}'
+    echo '{"t":"device","id":"10.0.1.5:4001","name":"Pixel","kind":"phone","addr":"10.0.1.5:4001"}'
+    echo '{"t":"device","id":"10.0.1.9:4000","name":"Galaxy Tab","kind":"tablet","addr":"10.0.1.9:4000"}'
+    echo '{"t":"gone","id":"10.0.1.9:4000"}' ;;
+  oldcli) echo "error: unexpected argument '--no-wake' found" >&2; exit 2 ;;
+  delivered|declined|cancelled)
+    echo '{"t":"progress","id":"a","done":1,"total":2}'
+    echo "{\"t\":\"result\",\"id\":\"a\",\"code\":\"$FAKE_MODE\"}"
+    [ "$FAKE_MODE" = delivered ] || exit 1 ;;
+  failed) echo 'quickshare: no device named "Pixel" appeared within 120 seconds' >&2; exit 2 ;;
+esac
+EOF
+chmod +x "$fake/quickshare"
+
+failures=0
+check() {
+  if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1"; echo "     want $3"; echo "     got  $2"; failures=$((failures + 1)); fi
+}
+run() {
+  : >"$fake/calls"
+  FAKE_MODE=$1 FAKE_DIR=$fake PATH="$fake:$PATH" FOLIO_TARGET=Pixel FOLIO_TARGET_NAME=Pixel "$here/$2" "-odd name.txt" "b.jpg"
+  echo "exit=$?"
+}
+
+check "devices lists each name once, sorted" "$(run devices devices)" \
+  '{"items":[{"id":"Galaxy Tab","name":"Galaxy Tab","icon":"quickshare.svg"},{"id":"Pixel","name":"Pixel","icon":"quickshare.svg"}]}
+exit=0'
+check "devices browses without waking phones" "$(cat "$fake/calls")" "--json browse --timeout 2 --no-wake"
+check "devices with a quickshare lacking --no-wake lists nothing" "$(run oldcli devices 2>/dev/null)" '{"items":[]}
+exit=0'
+check "send delivered" "$(run delivered send)" '{"notice":["Sent to %1.","Pixel"]}
+exit=0'
+check "send passes the target and every file intact" "$(cat "$fake/calls")" "--json send --to Pixel -- -odd name.txt b.jpg"
+check "send declined" "$(run declined send)" '{"error":["%1 declined.","Pixel"]}
+exit=1'
+check "send cancelled" "$(run cancelled send)" '{"error":["%1 cancelled the transfer.","Pixel"]}
+exit=1'
+check "send failed gives quickshare's reason" "$(run failed send)" '{"error":["Couldn'\''t send to %1: %2","Pixel","no device named \"Pixel\" appeared within 120 seconds"]}
+exit=1'
+
+for f in "$here/i18n/en.json" "$here/manifest.json"; do
+  jq -e . "$f" >/dev/null && echo "ok   $(basename "$f") is JSON" || failures=$((failures + 1))
+done
+[ "$failures" -eq 0 ] && echo "all passed" || { echo "$failures failed"; exit 1; }
