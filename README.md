@@ -18,6 +18,9 @@ Select files, right-click, and pick a nearby device under **Share › Quick Shar
 
 ![Folio's file menu on a photo, open at Share › Quick Share › Pixel 11 Pro Fold](assets/send.png)
 
+> [!NOTE]
+> Your phone must be temporarily made visible to everything around it or have the Quick Share Receive page open. As of now, there is no way to authenticate with your Google account to count your computer as one of your official Quick Share devices
+
 ### Receiving
 
 Right-click a folder and choose **Receive with Quick Share**. The computer then shows up in the phone's share sheet under its hostname, and the files you accept land in that folder.
@@ -27,6 +30,9 @@ Right-click a folder and choose **Receive with Quick Share**. The computer then 
 Nothing is saved without asking. Each transfer shows a notification with the sender, the files, their size and the PIN to match against the phone.
 
 <img src="assets/accept.png" width="382" alt="A notification reading Pixel 11 Pro Fold wants to send PXL_20261107_190425590.jpg, 3.5MB, PIN 4821, with Copy code, Accept and Decline buttons">
+
+> [!NOTE]
+> The first time you set a folder up to receive with Quick Share, you will be prompted for your sudo password. This is to open the required port _(53318)_ for receiving on your computer's firewall.
 
 ## Requirements
 
